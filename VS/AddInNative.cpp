@@ -1,15 +1,6 @@
 
 #include "stdafx.h"
 
-
-#ifdef __linux__
-#include <unistd.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <time.h>
-#include <errno.h>
-#endif
-
 #include <stdio.h>
 #include <wchar.h>
 #include "AddInNative.h"
@@ -18,6 +9,64 @@
 #define TIME_LEN 34
 
 #define BASE_ERRNO     7
+
+#ifdef __linux__
+
+#include <unistd.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <time.h>
+#include <errno.h>
+#include <fcntl.h> 
+#include <termios.h>
+#include <wchar.h>
+#include <stdarg.h>
+
+typedef char TCHAR;
+
+#ifdef __GNUC__
+#define  swscanf_s swscanf
+#endif
+
+int ReadFile(int file, void *buffer, size_t count, DWORD* bytes_read,
+        void * overlapped_ignored){
+    int status = 1;
+    *bytes_read = read(file, buffer, count);
+    if(*bytes_read < 0){
+        *bytes_read = 0;
+        status = 0;
+    }
+    return status;
+}
+
+int WriteFile(int file, const void *buffer, size_t count, DWORD* bytes_written, 
+        void * overlapped_ignored){
+    int status = 1;
+    *bytes_written = write(file, buffer, count);
+    if(*bytes_written < 0){
+        *bytes_written = 0;
+        status = 0;
+    }
+    return status;
+}
+
+void CloseHandle(int file){
+    close(file);
+}
+
+void Sleep(long milliseconds){
+    usleep(milliseconds * 1000);
+}
+
+int wsprintf(wchar_t *buf, const wchar_t* format, ...){
+    va_list ap;
+    va_start(ap, format);
+    int ret = vswprintf(buf, sizeof(buf) / sizeof(*buf), format, ap);
+    va_end(ap);
+    return ret;
+}
+#endif
+
 
 static wchar_t *curver = L"2.3.0";
 
@@ -136,9 +185,15 @@ static wchar_t *maria_Text_Errors[] = {L"Нет ошибки",
 static const wchar_t g_kClassNames[] = L"CAddInNative"; //"|OtherClass1|OtherClass2";
 static IAddInDefBase *pAsyncEvent = NULL;
 
+#ifndef __linux__
 HANDLE hComm;
 HANDLE hTempFile;
 DCB		dcb;
+#else
+int hComm;
+int hTempFile;
+struct termios dcb;
+#endif
 
 uint8_t err_arr[80];
 
@@ -214,7 +269,11 @@ bool CAddInNative::Init(void* pConnection)
 	m_cnt = 300;
 	m_err = 0;
 	m_err_cnt = 0;
+#ifndef __linux__
 	m_port = 1;
+#else
+    m_port = 0;
+#endif
 	m_baud = 9600;
     return m_iConnect != NULL;
 }
@@ -698,7 +757,7 @@ void MyTimerProc(int sig)
     {
         wmemset(data, 0, TIME_LEN);
         swprintf(data, TIME_LEN, L"%ul", dwTime);
-        ::convToShortWchar(&who, L"ComponentNative");
+        ::convToShortWchar(&who, L"Maria");
         ::convToShortWchar(&what, L"Timer");
         ::convToShortWchar(&wdata, data);
 
@@ -718,8 +777,8 @@ void CAddInNative::SetLocale(const WCHAR_T* loc)
     _wsetlocale(LC_ALL, loc);
 #else
     //We convert in char* char_locale
-    //also we establish locale
-    //setlocale(LC_ALL, char_locale);
+    //also we estabilish locale
+    setlocale(LC_ALL, wstrtostr(loc).c_str());
 #endif
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -972,7 +1031,7 @@ uint8_t CAddInNative::send_data(void)
 
 	if (m_loging) 
 	{
-		sprintf(TMPBUFFER,"%4d %4d %4d", i, total_bytes_read, cnt);
+		sprintf(TMPBUFFER,"%4d %4ld %4d", i, total_bytes_read, cnt);
 		write_log(TMPBUFFER, 14, 't');
 		if (total_bytes_read > 0) 
 		{
@@ -1016,7 +1075,6 @@ uint8_t CAddInNative::send_data(void)
 uint8_t CAddInNative::OpenPort(void)
 {
 	char	pcCommPort[32];
-	COMMTIMEOUTS timeouts;
 
     char	INBUFFER[500];
     //char	ZZBUFFER[500];
@@ -1046,13 +1104,20 @@ uint8_t CAddInNative::OpenPort(void)
 
 	if (m_loging) 
 	{
+#ifndef __linux__
 		dwStatus = GetTempPath(MAX_PATH, lpTempPathBuffer);
 		memcpy(lpTempPathBuffer + dwStatus, TEXT("maria.log"),18);
 		//uRetVal = GetTempFileName(lpTempPathBuffer, TEXT("maria"), 0, szTempFileName);
 	    hTempFile = CreateFile((LPTSTR) lpTempPathBuffer,  GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);                // no template 
 		dwStatus = SetFilePointer(hTempFile, 0, NULL, FILE_END);
+#else
+        hTempFile = open(tmpnam("maria.log"), O_CREAT, O_WRONLY);
+        if(hTempFile < 0)
+            return return_error(1);
+#endif
 	}
 
+#ifndef __linux__
 	sprintf(pcCommPort,"\\\\.\\COM%d", m_port);
 	hComm = CreateFileA( pcCommPort,GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
 	if(hComm == INVALID_HANDLE_VALUE) return return_error(1); //error opening com port
@@ -1073,7 +1138,8 @@ uint8_t CAddInNative::OpenPort(void)
 		CAddInNative::ClosePort();
 		return return_error(3); //error write com port settings 
 	}
-	
+
+	COMMTIMEOUTS timeouts;
 	memset(&timeouts,0,sizeof(timeouts));
     timeouts.ReadTotalTimeoutConstant    = 10;
     timeouts.WriteTotalTimeoutConstant   = 100;
@@ -1086,7 +1152,50 @@ uint8_t CAddInNative::OpenPort(void)
 		CAddInNative::ClosePort();
 		return return_error(4); //error seting com port timeouts
 	}
+#else
+	sprintf(pcCommPort,"/dev/ttyS%d", m_port);
+    
+	hComm = open (pcCommPort, O_RDWR | O_NOCTTY | O_SYNC);
+	if(hComm < 0) return return_error(1); //error opening com port
 
+	if(tcgetattr(hComm, &dcb) != 0)
+	{
+		CAddInNative::ClosePort();
+		return return_error(2);  //error geting com port settings
+	}
+
+    cfsetospeed (&dcb, m_baud);
+    cfsetispeed (&dcb, m_baud);
+
+    dcb.c_cflag = (dcb.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
+    // disable IGNBRK for mismatched speed tests; otherwise receive break
+    // as \000 chars
+    dcb.c_iflag &= ~IGNBRK;         // disable break processing
+    dcb.c_lflag = 0;                // no signaling chars, no echo,
+                                    // no canonical processing
+    dcb.c_oflag = 0;                // no remapping, no delays
+    dcb.c_cc[VMIN]  = 0;            // read doesn't block
+    dcb.c_cc[VTIME] = 1;            // deciseconds
+
+/*
+    dcb.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+
+    dcb.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
+                                    // enable reading
+*/
+
+    dcb.c_cflag |= INPCK;
+    dcb.c_cflag |= PARENB;
+    dcb.c_cflag &= ~PARODD;
+    dcb.c_cflag |= CSTOPB;
+    dcb.c_cflag |= CRTSCTS;
+
+    if (tcsetattr (hComm, TCSANOW, &dcb) != 0)
+    {
+        CAddInNative::ClosePort();
+        return return_error(3);  //error write com port settings
+    }
+#endif
 
 
 	if (m_loging) 
@@ -1262,9 +1371,14 @@ void CAddInNative::ClosePort(void)
 {
 	//if (m_isCheckOpen) CAddInNative::CancelCheck(NULL,NULL,0);
 	if (m_isOpen) {
-		dcb.fDtrControl = DTR_CONTROL_DISABLE; 
+#ifndef __linux__
+        dcb.fDtrControl = DTR_CONTROL_DISABLE;
 		if(!SetCommState(hComm, &dcb))
-		{
+#else
+        dcb.c_cflag &= ~CRTSCTS;
+        if(tcgetattr(hComm, &dcb) != 0)
+#endif
+        {
 			//return return_error(3); //error write com port settings 
 			write_log("", 3, 'e');
 		}
@@ -1373,7 +1487,12 @@ std::string wstrtostr(const std::wstring &wstr)
 
 	char *szTo = new char[wstr.length() + 1];
 	szTo[wstr.size()] = '\0';
+#ifndef __linux__
 	WideCharToMultiByte(CP_OEMCP, 0, wstr.c_str(), -1, szTo, (int)wstr.length(), NULL, NULL);
+#else
+    const wchar_t * wstr_c = wstr.c_str();
+    wcsrtombs(szTo, &wstr_c, (int)wstr.length(), NULL);
+#endif
 	strTo = szTo;
 	delete[] szTo;
 	return strTo;
@@ -1385,7 +1504,12 @@ std::wstring strtowstr(const std::string &str)
 	std::wstring wstrTo;
 	wchar_t *wszTo = new wchar_t[str.length() + 1];
 	wszTo[str.size()] = L'\0';
+#ifndef __linux__
 	MultiByteToWideChar(CP_OEMCP, 0, str.c_str(), -1, wszTo, (int)str.length());
+#else
+    const char *str_c = str.c_str();
+    mbsrtowcs(wszTo, &str_c, (int)str.length(), NULL);
+#endif
 	wstrTo = wszTo;
 	delete[] wszTo;
 	return wstrTo;

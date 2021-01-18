@@ -81,7 +81,8 @@
 #ifndef __linux__
 #define WCHAR_T     wchar_t
 #else
-#define WCHAR_T     uint16_t
+//#define WCHAR_T     uint16_t
+#define WCHAR_T     wchar_t
 #endif //__linux__
 typedef unsigned short TYPEVAR;
 enum ENUMVAR
