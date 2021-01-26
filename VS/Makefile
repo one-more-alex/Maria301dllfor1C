@@ -9,8 +9,8 @@ LIBS=pthread
 OBJECTS=$(SOURCES:.cpp=.o)
 INCLUDES=-I../../include
 UNAME_S:=$(shell uname -s)
-#CXXLAGS=$(CXXFLAGS) $(INCLUDES) -m32 -finput-charset=WINDOWS-1251 -fPIC
-CXXLAGS=$(CXXFLAGS) $(INCLUDES) -finput-charset=WINDOWS-1251 -fPIC
+CXXLAGS=$(CXXFLAGS) $(INCLUDES) -m32 -finput-charset=WINDOWS-1251 -fPIC
+#CXXLAGS=$(CXXFLAGS) $(INCLUDES) -finput-charset=WINDOWS-1251 -fPIC
 
 ifeq ($(UNAME_S),Linux)
 	INCLUDES += -Iinc
