@@ -71,7 +71,7 @@ public:
     virtual void ADDIN_API SetLocale(const WCHAR_T* loc);
     
 private:
-    long findName(wchar_t* names[], const wchar_t* name, const uint32_t size) const;
+    long findName(const wchar_t* names[], const wchar_t* name, const uint32_t size) const;
     void addError(uint32_t wcode, const wchar_t* source, 
                     const wchar_t* descriptor, long code);
 
@@ -84,7 +84,7 @@ private:
 	uint8_t OpenPort(void) ;
 	void ClosePort(void) ;
 	uint8_t return_error(uint8_t err_no) ;
-	void write_log(char* OUTBUFFER, int l, char log_type) ;
+	void write_log(const char* OUTBUFFER, int l, char log_type) ;
 
 	// Attributes
     IAddInDefBase      *m_iConnect;
@@ -100,7 +100,7 @@ private:
 
 	std::wstring		m_cmd;
 	std::wstring		m_ans;
-
+    FILE                *m_log_file;
 };
 
 #endif //__ADDINNATIVE_H__

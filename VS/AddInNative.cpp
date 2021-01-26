@@ -21,6 +21,7 @@
 #include <termios.h>
 #include <wchar.h>
 #include <stdarg.h>
+#include <iconv.h>
 
 typedef char TCHAR;
 
@@ -68,21 +69,21 @@ int wsprintf(wchar_t *buf, const wchar_t* format, ...){
 #endif
 
 
-static wchar_t *curver = L"2.3.0";
+static const wchar_t *curver = L"2.3.0";
 
-static wchar_t *g_PropNames[] = {L"Port", L"Baud", L"IsOpen", 
+static const wchar_t *g_PropNames[] = {L"Port", L"Baud", L"IsOpen", 
 		L"LastCmd", L"LastAnswer", L"LastError", L"LastTextError", 
 		L"Version", L"ErrorsNumber"};
-static wchar_t *g_MethodNames[] = {L"OpenPort", L"ClosePort", L"Test", 
+static const wchar_t *g_MethodNames[] = {L"OpenPort", L"ClosePort", L"Test", 
 		L"Loging", L"CMD", L"SetCnt", L"ErrorByIndex", L"ErrorTextByIndex"};
 
-static wchar_t *g_PropNamesRu[] = {L"Порт", L"Скорость", L"ПортОткрыт", 
+static const wchar_t *g_PropNamesRu[] = {L"Порт", L"Скорость", L"ПортОткрыт", 
 		L"Команда", L"Ответ", L"Ошибка",  L"ТекстОшибки", 
 		L"Версия", L"КоличествоОшибок"};
-static wchar_t *g_MethodNamesRu[] = {L"ОткрытьПорт", L"ЗакрытьПорт", L"Тест",  
+static const wchar_t *g_MethodNamesRu[] = {L"ОткрытьПорт", L"ЗакрытьПорт", L"Тест",  
 		L"Логирование", L"Команда", L"КоличествоОпросов", L"ОшибкаПоНомеру", L"ТекстОшибкаПоНомеру"};
 
-static wchar_t *maria_Errors[] = {
+static const wchar_t *maria_Errors[] = {
 		L"HARDPAPER",  L"HARDSENSOR", L"HARDPOINT",  L"HARDTXD",    L"HARDTIMER", 
 		L"HARDMEMORY", L"HARDLCD",    L"HARDUCCLOW", L"HARDCUTTER", L"SHUTDOWN",
 		L"SOFTBLOCK",  L"SOFTNREP",   L"SOFTSYSLOC", L"SOFTCOMMAN", L"SOFTPROTOC",
@@ -103,7 +104,7 @@ static wchar_t *maria_Errors[] = {
 		L"RTC_ERROR_CODE_01", L"RTC_ERROR_CODE_02", L"RTC_ERROR_CODE_03", 
 		L"RTC_ERROR_CODE_04", L"RTC_ERROR_CODE_05"};
 
-static wchar_t *maria_Text_Errors[] = {L"Нет ошибки",
+static const wchar_t *maria_Text_Errors[] = {L"Нет ошибки",
 		L"Невозможно открыть СОМ порт",
 		L"Невозможно получить состояние СОМ порта",
 		L"Невозможно установить параметры СОМ порта",
@@ -207,7 +208,7 @@ std::string wstrtostr(const std::wstring &wstr);
 void IpHexToStr(std::wstring& in, std::wstring& out);
 void PortHexToStr(std::wstring& in, std::wstring& out);
 void DelayHexToStr(std::wstring& in, std::wstring& out);
-int subst( char * str, int ln, char * substr, int subln);
+int subst( char * str, int ln, const char * substr, int subln);
 
 //---------------------------------------------------------------------------//
 long GetClassObject(const WCHAR_T* wsName, IComponentBase** pInterface)
@@ -275,6 +276,8 @@ bool CAddInNative::Init(void* pConnection)
     m_port = 0;
 #endif
 	m_baud = 9600;
+    m_log_file = fopen("/tmp/maria_printer.log", "a");
+    fprintf(m_log_file, "MARIA: Initialaized!\n"); fflush(m_log_file);
     return m_iConnect != NULL;
 }
 //---------------------------------------------------------------------------//
@@ -293,16 +296,20 @@ void CAddInNative::Done()
 //---------------------------------------------------------------------------//
 bool CAddInNative::RegisterExtensionAs(WCHAR_T** wsExtensionName)
 { 
-    wchar_t *wsExtension = L"Maria2";
+    const wchar_t *wsExtension = L"Maria2";
     int iActualSize = ::wcslen(wsExtension) + 1;
     WCHAR_T* dest = 0;
+
 
     if (m_iMemory)
     {
         if(m_iMemory->AllocMemory((void**)wsExtensionName, iActualSize * sizeof(WCHAR_T)))
             ::convToShortWchar(wsExtensionName, wsExtension, iActualSize);
+            fprintf(m_log_file, "Registered! Name: '%s'\n", wstrtostr(wsExtension).c_str()); fflush(m_log_file);
         return true;
     }
+    
+    fprintf(m_log_file, "NOT Registered!\n"); fflush(m_log_file);
 
     return false; 
 }
@@ -334,9 +341,11 @@ const WCHAR_T* CAddInNative::GetPropName(long lPropNum, long lPropAlias)
     if (lPropNum >= ePropLast)
         return NULL;
 
-    wchar_t *wsCurrentName = NULL;
+    const wchar_t *wsCurrentName = NULL;
     WCHAR_T *wsPropName = NULL;
     int iActualSize = 0;
+
+    fprintf(m_log_file, "GetPropName(%ld, %ld)\n", lPropNum, lPropAlias); fflush(m_log_file);
 
     switch(lPropAlias)
     {
@@ -347,8 +356,11 @@ const WCHAR_T* CAddInNative::GetPropName(long lPropNum, long lPropAlias)
         wsCurrentName = g_PropNamesRu[lPropNum];
         break;
     default:
+        fprintf(m_log_file, "GetPropName: No name matched!\n"); fflush(m_log_file);
         return 0;
     }
+    
+    fprintf(m_log_file, "GetPropName: wsCurrentName: '%s'\n", wstrtostr(wsCurrentName).c_str()); fflush(m_log_file);
     
     iActualSize = wcslen(wsCurrentName)+1;
 
@@ -358,6 +370,7 @@ const WCHAR_T* CAddInNative::GetPropName(long lPropNum, long lPropAlias)
             ::convToShortWchar(&wsPropName, wsCurrentName, iActualSize);
     }
 
+    fprintf(m_log_file, "GetPropName: wsPropName: '%s'\n", wstrtostr(wsCurrentName).c_str()); fflush(m_log_file);
     return wsPropName;
 }
 //---------------------------------------------------------------------------//
@@ -505,7 +518,7 @@ const WCHAR_T* CAddInNative::GetMethodName(const long lMethodNum, const long lMe
     if (lMethodNum >= eMethLast)
         return NULL;
 
-    wchar_t *wsCurrentName = NULL;
+    const wchar_t *wsCurrentName = NULL;
     WCHAR_T *wsMethodName = NULL;
     int iActualSize = 0;
 
@@ -778,7 +791,7 @@ void CAddInNative::SetLocale(const WCHAR_T* loc)
 #else
     //We convert in char* char_locale
     //also we estabilish locale
-    setlocale(LC_ALL, wstrtostr(loc).c_str());
+    //setlocale(LC_ALL, wstrtostr(loc_wc).c_str());
 #endif
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -807,7 +820,7 @@ void CAddInNative::addError(uint32_t wcode, const wchar_t* source,
     }
 }
 //---------------------------------------------------------------------------//
-long CAddInNative::findName(wchar_t* names[], const wchar_t* name, 
+long CAddInNative::findName(const wchar_t* names[], const wchar_t* name, 
                          const uint32_t size) const
 {
     long ret = -1;
@@ -833,7 +846,77 @@ bool CAddInNative::wstring_to_p(std::wstring str, tVariant* val) {
 	val -> strLen = str.length();
 	return true;
 }
+//---------------------------------------------------------------------------//
+uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, size_t len)
+{
+    if (!len)
+        len = ::wcslen(Source) + 1;
 
+    if (!*Dest)
+        *Dest = new WCHAR_T[len];
+
+    WCHAR_T* tmpShort = *Dest;
+    wchar_t* tmpWChar = (wchar_t*) Source;
+    uint32_t res = 0;
+
+    ::memset(*Dest, 0, len * sizeof(WCHAR_T));
+#ifdef __linux__
+    size_t succeed = (size_t)-1;
+    size_t f = len * sizeof(wchar_t), t = len * sizeof(WCHAR_T);
+    const char* fromCode = sizeof(wchar_t) == 2 ? "UTF-16" : "UTF-32";
+    iconv_t cd = iconv_open("UTF-16LE", fromCode);
+    if (cd != (iconv_t)-1)
+    {
+        succeed = iconv(cd, (char**)&tmpWChar, &f, (char**)&tmpShort, &t);
+        iconv_close(cd);
+        if(succeed != (size_t)-1)
+            return (uint32_t)succeed;
+    }
+#endif //__linux__
+    for (; len; --len, ++res, ++tmpWChar, ++tmpShort)
+    {
+        *tmpShort = (WCHAR_T)*tmpWChar;
+    }
+
+    return res;
+}
+//---------------------------------------------------------------------------//
+uint32_t convFromShortWchar(wchar_t** Dest, const WCHAR_T* Source, uint32_t len)
+{
+    if (!len)
+        len = getLenShortWcharStr(Source) + 1;
+
+    if (!*Dest)
+        *Dest = new wchar_t[len];
+
+    wchar_t* tmpWChar = *Dest;
+    WCHAR_T* tmpShort = (WCHAR_T*)Source;
+    uint32_t res = 0;
+
+    ::memset(*Dest, 0, len * sizeof(wchar_t));
+#ifdef __linux__
+    size_t succeed = (size_t)-1;
+    const char* fromCode = sizeof(wchar_t) == 2 ? "UTF-16" : "UTF-32";
+    size_t f = len * sizeof(WCHAR_T), t = len * sizeof(wchar_t);
+    iconv_t cd = iconv_open("UTF-32LE", fromCode);
+    if (cd != (iconv_t)-1)
+    {
+        succeed = iconv(cd, (char**)&tmpShort, &f, (char**)&tmpWChar, &t);
+        iconv_close(cd);
+        if(succeed != (size_t)-1)
+            return (uint32_t)succeed;
+    }
+#endif //__linux__
+    for (; len; --len, ++res, ++tmpWChar, ++tmpShort)
+    {
+        *tmpWChar = (wchar_t)*tmpShort;
+    }
+
+    return res;
+}
+
+
+/*
 uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, uint32_t len)
 {
     if (!len)
@@ -879,6 +962,7 @@ uint32_t convFromShortWchar(wchar_t** Dest, const WCHAR_T* Source, uint32_t len)
 
     return res;
 }
+*/
 //---------------------------------------------------------------------------//
 uint32_t getLenShortWcharStr(const WCHAR_T* Source)
 {
@@ -892,7 +976,7 @@ uint32_t getLenShortWcharStr(const WCHAR_T* Source)
 }
 //---------------------------------------------------------------------------//
 
-void CAddInNative::write_log(char* OUTBUFFER, int l, char log_type)
+void CAddInNative::write_log(const char* OUTBUFFER, int l, char log_type)
 {
 	char	TMPBUFFER[50];
     DWORD   bytes_written = 0;
@@ -1058,7 +1142,11 @@ uint8_t CAddInNative::send_data(void)
 	for (j = 0; j < 67; j++) 
 	{
 		l = wcslen(maria_Errors[j]);
+#ifndef __linux__
 		sprintf(TMPBUFFER,"%ws", maria_Errors[j]);
+#else
+		sprintf(TMPBUFFER,"%ls", maria_Errors[j]);
+#endif
 		pch = subst(INBUFFER, total_bytes_read, TMPBUFFER, l);
 		if (pch > 0)
 		{
@@ -1111,7 +1199,7 @@ uint8_t CAddInNative::OpenPort(void)
 	    hTempFile = CreateFile((LPTSTR) lpTempPathBuffer,  GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);                // no template 
 		dwStatus = SetFilePointer(hTempFile, 0, NULL, FILE_END);
 #else
-        hTempFile = open(tmpnam("maria.log"), O_CREAT, O_WRONLY);
+        hTempFile = mkstemp((char *) "maria.log");
         if(hTempFile < 0)
             return return_error(1);
 #endif
@@ -1257,7 +1345,7 @@ uint8_t CAddInNative::OpenPort(void)
 
 	if (m_loging) 
 	{
-		sprintf(TMPBUFFER,"%4d %4d", i, total_bytes_read);
+		sprintf(TMPBUFFER,"%4d %4ld", i, total_bytes_read);
 		write_log(TMPBUFFER, 9, 't');
 		if (total_bytes_read > 0)
 		{
@@ -1328,7 +1416,7 @@ uint8_t CAddInNative::OpenPort(void)
 
 	if (m_loging) 
 	{
-		sprintf(TMPBUFFER,"%4d %4d %4d", i, total_bytes_read, cnt);
+		sprintf(TMPBUFFER,"%4d %4ld %4d", i, total_bytes_read, cnt);
 		write_log(TMPBUFFER, 14, 't');
 		if (total_bytes_read > 0)
 		{
@@ -1394,8 +1482,10 @@ bool CAddInNative::CMD(tVariant* pvarRetValue, tVariant* paParams, const long lS
 {
 	int res = 1;
 	std::wstring p0;
+    wchar_t *p0_wc;
 
-	p0 = (paParams) -> pwstrVal;
+    ::convFromShortWchar(&p0_wc, (paParams) -> pwstrVal);
+    p0 = p0_wc;
     
 	m_cmd = L"" + p0;
 	res = send_data();
@@ -1440,13 +1530,15 @@ bool param_check(std::wstring& inStr, tVariant* paParam, int newLen, int mult)
 	bool ism = false;
 	wchar_t wc[256];
 	wchar_t pwc[10];
+    wchar_t *p0_wc;
 
     switch(TV_VT(paParam))
     {
     //case VTYPE_PSTR:
     //    break;
     case VTYPE_PWSTR:
-		inStr = (paParam)->pwstrVal;
+        ::convFromShortWchar(&p0_wc, (paParam) -> pwstrVal);
+        inStr = p0_wc;
 		if (inStr[0]==L'-'){
 			ism = true;
 			inStr[0]=L'0';
@@ -1554,7 +1646,7 @@ void PortHexToStr(std::wstring& in, std::wstring& out)
 	out = wc;
 }
 
-int subst( char * str, int ln, char * substr, int subln)
+int subst( char * str, int ln, const char * substr, int subln)
 {
 	int i,j;
 	int ret = 0;
