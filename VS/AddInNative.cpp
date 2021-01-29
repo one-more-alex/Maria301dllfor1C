@@ -1482,7 +1482,7 @@ bool CAddInNative::CMD(tVariant* pvarRetValue, tVariant* paParams, const long lS
 {
 	int res = 1;
 	std::wstring p0;
-    wchar_t *p0_wc;
+    wchar_t *p0_wc = NULL;
 
     ::convFromShortWchar(&p0_wc, (paParams) -> pwstrVal);
     p0 = p0_wc;
@@ -1530,7 +1530,7 @@ bool param_check(std::wstring& inStr, tVariant* paParam, int newLen, int mult)
 	bool ism = false;
 	wchar_t wc[256];
 	wchar_t pwc[10];
-    wchar_t *p0_wc;
+    wchar_t *p0_wc = NULL;
 
     switch(TV_VT(paParam))
     {
