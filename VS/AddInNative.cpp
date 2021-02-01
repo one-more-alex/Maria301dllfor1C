@@ -198,6 +198,7 @@ struct termios dcb;
 
 uint8_t err_arr[80];
 
+uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, size_t len = 0); 
 uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, uint32_t len = 0);
 uint32_t convFromShortWchar(wchar_t** Dest, const WCHAR_T* Source, uint32_t len = 0);
 uint32_t getLenShortWcharStr(const WCHAR_T* Source);
