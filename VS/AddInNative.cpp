@@ -198,8 +198,7 @@ struct termios dcb;
 
 uint8_t err_arr[80];
 
-uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, size_t len = 0); 
-uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, uint32_t len = 0);
+uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source, size_t len = 0);
 uint32_t convFromShortWchar(wchar_t** Dest, const WCHAR_T* Source, uint32_t len = 0);
 uint32_t getLenShortWcharStr(const WCHAR_T* Source);
 void string_normalize(std::wstring& inStr, int newLen, uint8_t ls, char ch);
@@ -1242,11 +1241,29 @@ uint8_t CAddInNative::OpenPort(void)
 		return return_error(4); //error seting com port timeouts
 	}
 #else
-	sprintf(pcCommPort,"/dev/ttyS%d", m_port);
-    
-	hComm = open (pcCommPort, O_RDWR | O_NOCTTY | O_SYNC);
-	if(hComm < 0) return return_error(1); //error opening com port
+	if (m_port < 100)
+	{
+	    sprintf(pcCommPort,"/dev/ttyS%d", m_port);
+	    fprintf(m_log_file, "ComPort: /dev/ttyS%d\n", m_port); fflush(m_log_file);
 
+	}
+	else
+	{
+	    sprintf(pcCommPort,"/dev/ttyUSB%d", m_port-100);
+	    fprintf(m_log_file, "ComPort: /dev/ttyUSB%d\n", m_port-100); fflush(m_log_file);
+	}
+
+	hComm = open (pcCommPort, O_RDWR | O_NOCTTY | O_SYNC);
+	if(hComm < 0) 
+	{
+	    fprintf(m_log_file, "Error %i from open: %s\n", errno, strerror(errno)); fflush(m_log_file);
+	    return return_error(1); //error opening com port
+	}
+	else
+	{
+	    fprintf(m_log_file, "hComm: OK\n"); fflush(m_log_file);	    
+	}
+    
 	if(tcgetattr(hComm, &dcb) != 0)
 	{
 		CAddInNative::ClosePort();

@@ -90,7 +90,7 @@ private:
     IAddInDefBase      *m_iConnect;
     IMemoryManager     *m_iMemory;
 
-    uint8_t             m_port;
+    int16_t	        m_port;
     uint8_t             m_err;
     uint8_t             m_err_cnt;
 	uint32_t            m_baud;
