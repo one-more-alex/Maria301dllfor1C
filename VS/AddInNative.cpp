@@ -1114,7 +1114,7 @@ uint8_t CAddInNative::send_data(void)
 
 		bytes_read = 0;
 		bStatus = ReadFile(hComm, &SMBUFFER, 50, &bytes_read, NULL);
-		fprintf(m_log_file, "port answer: %d: %s\n", bytes_read, SMBUFFER); fflush(m_log_file);
+		fprintf(m_log_file, "port answer: %ld: %s\n", bytes_read, SMBUFFER); fflush(m_log_file);
 		
 		if (!bStatus) return return_error(6); //error while data recieve
 		
@@ -1148,7 +1148,8 @@ uint8_t CAddInNative::send_data(void)
 
 	//Sleep(10);
 
-	s = INBUFFER;
+	s_tmp = INBUFFER;
+    s = recode("cp866", "UTF-8", s_tmp);
 	s.resize(total_bytes_read);
 	m_ans = strtowstr(s);
 	fprintf(m_log_file, "m_ans: before: %d: %s\n", s.length(), s.c_str()); fflush(m_log_file);
@@ -1399,8 +1400,9 @@ uint8_t CAddInNative::OpenPort(void)
 	}
 	Sleep(20);
 	
-	s = INBUFFER;
-	s.resize(total_bytes_read);
+    std::string s_tmp = INBUFFER;
+	s_tmp.resize(total_bytes_read);
+    s = recode("cp866", "UTF-8", s_tmp);
 	m_ans = strtowstr(s);
 
 	if (m_loging) 
@@ -1470,8 +1472,9 @@ uint8_t CAddInNative::OpenPort(void)
 		}
 	}
 
-	s = INBUFFER;
-	s.resize(total_bytes_read);
+	s_tmp = INBUFFER;
+	s_tmp.resize(total_bytes_read);
+    s = recode("cp866", "UTF-8", s_tmp);
 	m_ans = strtowstr(s);
 
 	if (m_loging) 
