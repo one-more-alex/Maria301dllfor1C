@@ -1061,6 +1061,13 @@ uint8_t CAddInNative::send_data(void)
 
 	if (m_loging) write_log(OUTBUFFER, l+3, 'c');
 
+    fprintf(m_log_file, "Writing to port: %d chars: '%*s'\n", l+3, l+3, OUTBUFFER);
+    fprintf(m_log_file, "Dump: %d chars:", l+3);
+    for(i=0; i<l+3; i++)
+        fprintf(m_log_file, " 0x%.2x", OUTBUFFER[i]);
+    fprintf(m_log_file, "\n");
+    fflush(m_log_file);
+
 	bStatus = WriteFile(hComm, &OUTBUFFER, l+3, &bytes_written, NULL);
     if (!bStatus ) return return_error(5); //error while data send
 	
