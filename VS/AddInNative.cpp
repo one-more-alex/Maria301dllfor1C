@@ -267,6 +267,7 @@ bool CAddInNative::Init(void* pConnection)
     m_iConnect = (IAddInDefBase*)pConnection;
 	m_isOpen = false;
 	m_loging = false;
+	//m_loging = true;
 	m_cnt = 300;
 	m_err = 0;
 	m_err_cnt = 0;
@@ -789,9 +790,10 @@ void CAddInNative::SetLocale(const WCHAR_T* loc)
 #ifndef __linux__
     _wsetlocale(LC_ALL, loc);
 #else
+    fprintf(m_log_file, "SetLocale called\n"); fflush(m_log_file);
     //We convert in char* char_locale
     //also we estabilish locale
-    //setlocale(LC_ALL, wstrtostr(loc_wc).c_str());
+    //setlocale(LC_ALL, wstrtostr(loc).c_str());
 #endif
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1206,7 +1208,7 @@ uint8_t CAddInNative::OpenPort(void)
 	    hTempFile = CreateFile((LPTSTR) lpTempPathBuffer,  GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);                // no template 
 		dwStatus = SetFilePointer(hTempFile, 0, NULL, FILE_END);
 #else
-        hTempFile = mkstemp((char *) "maria.log");
+        hTempFile = mkstemp((char *) "/tmp/maria.log");
         if(hTempFile < 0)
             return return_error(1);
 #endif
@@ -1602,13 +1604,14 @@ std::string wstrtostr(const std::wstring &wstr)
 	// Convert a Unicode string to an ASCII string
 	std::string strTo;
 
-	char *szTo = new char[wstr.length() + 1];
-	szTo[wstr.size()] = '\0';
+	int result_length = (int)wstr.length()*2;
+	char *szTo = new char[result_length + 1];
+	memset(szTo, 0, (result_length + 1));
 #ifndef __linux__
 	WideCharToMultiByte(CP_OEMCP, 0, wstr.c_str(), -1, szTo, (int)wstr.length(), NULL, NULL);
 #else
-    const wchar_t * wstr_c = wstr.c_str();
-    wcsrtombs(szTo, &wstr_c, (int)wstr.length(), NULL);
+	const wchar_t * wstr_c = wstr.c_str();
+	wcsrtombs(szTo, &wstr_c, result_length, NULL);
 #endif
 	strTo = szTo;
 	delete[] szTo;
