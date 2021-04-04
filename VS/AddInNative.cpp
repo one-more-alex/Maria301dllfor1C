@@ -1016,6 +1016,25 @@ uint8_t CAddInNative::return_error(uint8_t err_no)
 	return err_no;
 }
 
+std::string recode(const char* from, const char* to, std::string src) {
+    size_t f, t;
+    f = src.length();
+    t = src.length() * 2;
+    std::string dst = new char[t + 1];
+    char *c_dst = (char *)dst.c_str();
+    char *c_src = (char *)src.c_str();
+    memset(c_dst, 0, t+1);
+
+    iconv_t cd = iconv_open(to, from);
+    if (cd != (iconv_t)-1){
+        int succeed = iconv(cd, &c_src, &f, &c_dst, &t);
+        iconv_close(cd);
+//        if(succeed != (size_t)-1)
+//            return (uint32_t)succeed;
+    }
+    return dst;
+}
+
 uint8_t CAddInNative::send_data(void)
 {
     char	SMBUFFER[50];
@@ -1050,7 +1069,7 @@ uint8_t CAddInNative::send_data(void)
 		if (m_cmd[i]==L'²') m_cmd[i]=L'I';
 	}
 
-	s = wstrtostr(m_cmd);
+	s = recode("UTF-8", "cp866", wstrtostr(m_cmd));
 	l = s.length();
 
 	if (l > 255) return return_error(9); //to long command
