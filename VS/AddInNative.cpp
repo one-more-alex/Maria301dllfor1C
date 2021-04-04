@@ -1016,22 +1016,31 @@ uint8_t CAddInNative::return_error(uint8_t err_no)
 	return err_no;
 }
 
-std::string recode(const char* from, const char* to, std::string src) {
+std::string recode(const char* from, const char* to, std::string &src) {
     size_t f, t;
     f = src.length();
     t = src.length() * 2;
-    std::string dst = new char[t + 1];
-    char *c_dst = (char *)dst.c_str();
-    char *c_src = (char *)src.c_str();
+    std::string dst = "";
+    char *c_dst = (char *) malloc(sizeof(char) * (t + 1));
     memset(c_dst, 0, t+1);
+    char *c_dst_p = c_dst;
+    char *c_src = (char *)src.c_str();
 
+    FILE* log_file = fopen("/tmp/maria_printer.log", "a");
+    fprintf(log_file, "recode: %d: %s\n", f, c_src);
     iconv_t cd = iconv_open(to, from);
     if (cd != (iconv_t)-1){
-        int succeed = iconv(cd, &c_src, &f, &c_dst, &t);
+	errno = 0;
+        int succeed = iconv(cd, &c_src, &f, &c_dst_p, &t);
         iconv_close(cd);
+    	fprintf(log_file, "recode succeed: %d %d\n", succeed, errno);
 //        if(succeed != (size_t)-1)
 //            return (uint32_t)succeed;
     }
+    fprintf(log_file, "recode res: %d: %d: %s\n", t, strlen(c_dst), c_dst);
+    fclose(log_file);
+    dst = c_dst;
+    free(c_dst);
     return dst;
 }
 
@@ -1069,7 +1078,8 @@ uint8_t CAddInNative::send_data(void)
 		if (m_cmd[i]==L'²') m_cmd[i]=L'I';
 	}
 
-	s = recode("UTF-8", "cp866", wstrtostr(m_cmd));
+	std::string s_tmp = wstrtostr(m_cmd);
+	s = recode("UTF-8", "cp866", s_tmp);
 	l = s.length();
 
 	if (l > 255) return return_error(9); //to long command
@@ -1104,6 +1114,7 @@ uint8_t CAddInNative::send_data(void)
 
 		bytes_read = 0;
 		bStatus = ReadFile(hComm, &SMBUFFER, 50, &bytes_read, NULL);
+		fprintf(m_log_file, "port answer: %d: %s\n", bytes_read, SMBUFFER); fflush(m_log_file);
 		
 		if (!bStatus) return return_error(6); //error while data recieve
 		
@@ -1140,6 +1151,8 @@ uint8_t CAddInNative::send_data(void)
 	s = INBUFFER;
 	s.resize(total_bytes_read);
 	m_ans = strtowstr(s);
+	fprintf(m_log_file, "m_ans: before: %d: %s\n", s.length(), s.c_str()); fflush(m_log_file);
+	fprintf(m_log_file, "m_ans: after: %d: %ls\n", m_ans.length(), m_ans.c_str()); fflush(m_log_file);
 
 	if (m_loging) 
 	{
@@ -1227,7 +1240,8 @@ uint8_t CAddInNative::OpenPort(void)
 	    hTempFile = CreateFile((LPTSTR) lpTempPathBuffer,  GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);                // no template 
 		dwStatus = SetFilePointer(hTempFile, 0, NULL, FILE_END);
 #else
-        hTempFile = mkstemp((char *) "/tmp/maria.log");
+	// hTempFile = mkstemp((char *) "/tmp/maria.log");
+        hTempFile = open("/tmp/maria.log", O_APPEND|O_CREAT);
         if(hTempFile < 0)
             return return_error(1);
 #endif
