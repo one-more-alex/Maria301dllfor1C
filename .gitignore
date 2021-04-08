@@ -68,4 +68,7 @@ Temporary Items
 /VS/bind/*.exp
 /VS/bind/*.ilk
 
+*.d
+*.o
+*.so
 
