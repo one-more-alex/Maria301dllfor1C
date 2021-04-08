@@ -346,7 +346,7 @@ const WCHAR_T* CAddInNative::GetPropName(long lPropNum, long lPropAlias)
     WCHAR_T *wsPropName = NULL;
     int iActualSize = 0;
 
-    fprintf(m_log_file, "GetPropName(%ld, %ld)\n", lPropNum, lPropAlias); fflush(m_log_file);
+    //fprintf(m_log_file, "GetPropName(%ld, %ld)\n", lPropNum, lPropAlias); fflush(m_log_file);
 
     switch(lPropAlias)
     {
@@ -357,11 +357,11 @@ const WCHAR_T* CAddInNative::GetPropName(long lPropNum, long lPropAlias)
         wsCurrentName = g_PropNamesRu[lPropNum];
         break;
     default:
-        fprintf(m_log_file, "GetPropName: No name matched!\n"); fflush(m_log_file);
+        //fprintf(m_log_file, "GetPropName: No name matched!\n"); fflush(m_log_file);
         return 0;
     }
     
-    fprintf(m_log_file, "GetPropName: wsCurrentName: '%s'\n", wstrtostr(wsCurrentName).c_str()); fflush(m_log_file);
+    //fprintf(m_log_file, "GetPropName: wsCurrentName: '%s'\n", wstrtostr(wsCurrentName).c_str()); fflush(m_log_file);
     
     iActualSize = wcslen(wsCurrentName)+1;
 
@@ -371,7 +371,7 @@ const WCHAR_T* CAddInNative::GetPropName(long lPropNum, long lPropAlias)
             ::convToShortWchar(&wsPropName, wsCurrentName, iActualSize);
     }
 
-    fprintf(m_log_file, "GetPropName: wsPropName: '%s'\n", wstrtostr(wsCurrentName).c_str()); fflush(m_log_file);
+    //fprintf(m_log_file, "GetPropName: wsPropName: '%s'\n", wstrtostr(wsCurrentName).c_str()); fflush(m_log_file);
     return wsPropName;
 }
 //---------------------------------------------------------------------------//
@@ -1304,7 +1304,7 @@ uint8_t CAddInNative::OpenPort(void)
 	}
 	else
 	{
-	    fprintf(m_log_file, "hComm: OK\n"); fflush(m_log_file);	    
+//	    fprintf(m_log_file, "hComm: OK\n"); fflush(m_log_file);	    
 	}
     
 	if(tcgetattr(hComm, &dcb) != 0)
