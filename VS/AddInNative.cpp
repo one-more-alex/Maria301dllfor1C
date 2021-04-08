@@ -842,10 +842,14 @@ long CAddInNative::findName(const wchar_t* names[], const wchar_t* name,
 bool CAddInNative::wstring_to_p(std::wstring str, tVariant* val) {
 	char* t1;
 	TV_VT(val) = VTYPE_PWSTR;
-	m_iMemory->AllocMemory((void**)&t1, (str.length()+1) * sizeof(WCHAR_T));
-	memcpy(t1, str.c_str(), (str.length()+1) * sizeof(WCHAR_T));
+    WCHAR_T *shorWide = NULL;
+    convToShortWchar(&shorWide, str.c_str());
+    int len = str.length();
+    int allocSize = (len+1) * sizeof(WCHAR_T);
+	m_iMemory->AllocMemory((void**)&t1, allocSize);
+	memcpy(t1, shorWide, allocSize);
 	val -> pstrVal = t1;
-	val -> strLen = str.length();
+	val -> strLen = len;
 	return true;
 }
 //---------------------------------------------------------------------------//
